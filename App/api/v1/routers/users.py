@@ -1,107 +1,140 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from ....repositories.repository import get_user, create_user, get_user_by_email, update_user, delete_user
-from ....schemas import UserCreate, UserResponse,Token, TokenRequest, TokenRefreshRequest
-from ....core.auth import verify_password, create_access_token, create_refresh_token, decode_access_token, decode_refresh_token
+from typing import Optional
+from ....repositories.repository import (
+    create_user, get_user, get_user_by_email, 
+    update_user, delete_user
+)
+from ....schemas import UserCreate, UserResponse, Token, TokenRequest, TokenRefreshRequest
+from ....core.auth import (
+    verify_password, create_access_token, create_refresh_token, 
+    decode_access_token, decode_refresh_token
+)
 from ....core.dependencies import get_current_user
-from ....core.database import get_db
-import traceback
+from ....db.session import get_db, get_supabase_db
+from ....core.config import settings
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
-
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def create_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
-    try:
-        # simple uniqueness check
-        existing = get_user_by_email(db, user.email)
-        if existing:
-            raise HTTPException(status_code=400, detail="Email already registered")
-        return create_user(db, user)
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error creating user: {e}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-
-
-@router.post("/login", response_model=UserResponse)
-def login(token_request: TokenRequest, db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = decode_access_token(token_request.access_token)
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-    except Exception:
-        raise credentials_exception
+def create_user_endpoint(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+    supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None
+):
+    """Create a new user - PUBLIC endpoint (no auth required)"""
+    # Check if email already exists
+    existing = get_user_by_email(db, user.email)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Email already registered"
+        )
     
-    user = get_user_by_email(db, email=email)
-    if user is None:
-        raise credentials_exception
-    return user
-
+    try:
+        return create_user(db, supabase_db, user)
+    except Exception as e:
+        logger.error(f"Failed to create user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create user: {str(e)}"
+        )
 
 @router.post("/authenticate/{user_id}", response_model=Token)
 def authenticate(user_id: int, db: Session = Depends(get_db)):
+    """
+    Generate access and refresh tokens for a user
+    WARNING: This is for testing only - in production, require password!
+    """
     user = get_user(db, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="User not found"
+        )
+    
     access_token = create_access_token(data={"sub": user.email})
     refresh_token = create_refresh_token(data={"sub": user.email})
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+    
+    return {
+        "access_token": access_token, 
+        "refresh_token": refresh_token, 
+        "token_type": "bearer"
+    }
 
-
-
-@router.post("/refresh", response_model=Token)
-def refresh_token(request: TokenRefreshRequest, db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid refresh token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = decode_refresh_token(request.refresh_token)
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-    except Exception:
-        raise credentials_exception
-
-    user = get_user_by_email(db, email=email)
-    if user is None:
-        raise credentials_exception
-
-    access_token = create_access_token(data={"sub": user.email})
-    refresh_token = create_refresh_token(data={"sub": user.email})
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
-
-
-@router.get("/{user_id}", response_model=UserResponse)
-def read_user(user_id: int, db: Session = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
-    db_user = get_user(db, user_id)
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+@router.get("/me", response_model=UserResponse)
+def read_current_user(current_user: UserResponse = Depends(get_current_user)):
+    """
+    Get current authenticated user's information
+    SECURE: Users can only see their own info
+    """
+    return current_user
 
 
 @router.put("/{user_id}", response_model=UserResponse)
-def update_user_endpoint(user_id: int, user: UserCreate, db: Session = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
-    updated_user = update_user(db, user_id, user)
-    if not updated_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return updated_user
-
+def update_user_endpoint(
+    user_id: int, 
+    user: UserCreate, 
+    db: Session = Depends(get_db), 
+    supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Update user
+    SECURITY FIX: Users can only update their own profile
+    """
+    # Check if user is trying to update their own profile
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update your own profile"
+        )
+    
+    try:
+        updated_user = update_user(db, supabase_db, user_id, user)
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="User not found"
+            )
+        return updated_user
+    except Exception as e:
+        logger.error(f"Failed to update user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update user: {str(e)}"
+        )
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user_endpoint(user_id: int, db: Session = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
-    deleted = delete_user(db, user_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="User not found")
-    return
-
+def delete_user_endpoint(
+    user_id: int, 
+    db: Session = Depends(get_db),
+    supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Delete user
+    SECURITY FIX: Users can only delete their own account
+    """
+    # Check if user is trying to delete their own account
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own account"
+        )
+    
+    try:
+        deleted = delete_user(db, supabase_db, user_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="User not found"
+            )
+    except Exception as e:
+        logger.error(f"Failed to delete user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete user: {str(e)}"
+        )
