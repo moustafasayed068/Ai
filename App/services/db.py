@@ -3,11 +3,11 @@ Database Service Layer
 Handles intelligent routing between local and Supabase databases based on DB_MODE
 """
 from sqlalchemy.orm import Session
-from typing import Optional, TypeVar, Callable, Any
+from typing import Optional, TypeVar, Callable
 from ..core.config import settings
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)    
 
 T = TypeVar('T')
 

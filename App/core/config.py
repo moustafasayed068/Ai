@@ -8,13 +8,14 @@ class Settings(BaseSettings):
     DB_MODE: Literal["local", "supabase", "both"] = "local"
     SUPABASE_FAILURE_STRATEGY: Literal["fail", "continue", "retry"] = "continue"
     
-    COHERE_API_KEY: str  
-    
-    
-    SECRET_KEY: str = "your-secret-key-change-this"
+    COHERE_API_KEY: str
+    LLM_MODEL: str = "command-r-08-2024"
+
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
     
     class Config:
         env_file = ".env"

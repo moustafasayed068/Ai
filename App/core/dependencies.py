@@ -12,7 +12,7 @@ def get_current_user(
     db: Session = Depends(get_db)
 ):
     """Get current user from primary database based on DB_MODE"""
-    from ..repositories.repository import get_user_by_email
+    from ..repositories.user import get_user_by_email
     
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

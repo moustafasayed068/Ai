@@ -1,15 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Optional
-from ....repositories.repository import (
+from ....repositories.user import (
     create_user, get_user, get_user_by_email, 
     update_user, delete_user
 )
-from ....schemas import UserCreate, UserResponse, Token, TokenRequest, TokenRefreshRequest
-from ....core.auth import (
-    verify_password, create_access_token, create_refresh_token, 
-    decode_access_token, decode_refresh_token
-)
+from ....schemas import UserCreate, UserResponse, Token
+from ....core.auth import create_access_token, create_refresh_token
 from ....core.dependencies import get_current_user
 from ....db.session import get_db, get_supabase_db
 from ....core.config import settings
