@@ -11,18 +11,20 @@ app = FastAPI()
 
 @app.on_event("startup")
 def create_tables():
-    # Local DB
+   
     if settings.DB_MODE in ["local", "both"]:
+        
         Base.metadata.create_all(bind=engine)
 
-    # Supabase DB
+    
     if settings.DB_MODE in ["supabase", "both"] and supabase_engine:
+        
         Base.metadata.create_all(bind=supabase_engine)
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

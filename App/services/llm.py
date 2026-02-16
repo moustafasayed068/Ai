@@ -1,13 +1,15 @@
 import cohere
 from App.core.config import settings
 
-
 class LLMService:
-
     def __init__(self):
         self.client = cohere.ClientV2(settings.COHERE_API_KEY)
 
-    def chat(self, messages: list):
+    def chat(self, messages: list) -> str:
+        """
+        messages: [{"role": "user"/"assistant", "content": str}, ...]
+        returns assistant reply as string
+        """
         try:
             response = self.client.chat(
                 model=settings.LLM_MODEL,

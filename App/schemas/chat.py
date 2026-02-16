@@ -1,18 +1,20 @@
+from uuid import UUID
 from pydantic import BaseModel
 
 
 class ChatRequest(BaseModel):
     message: str
 
-    
+
 class ChatCreate(BaseModel):
     title: str
+    id: UUID | None = None  
 
 
 class ChatResponse(BaseModel):
-    id: int
+    id: UUID
     title: str
-    owner_id: int
+    owner_id: UUID
 
     class Config:
         from_attributes = True
@@ -23,9 +25,10 @@ class MessageCreate(BaseModel):
 
 
 class MessageResponse(BaseModel):
-    id: int
+    id: UUID
     content: str
-    chat_id: int
+    role: str
+    chat_id: UUID
 
     class Config:
         from_attributes = True
