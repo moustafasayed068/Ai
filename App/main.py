@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from App.db.session import engine, supabase_engine
 from App.db.base import Base
 from App.core.config import settings
-from App.api.v1.routers import llm, users, items, admin, img, embeddings
+from App.api.v1.routers import llm, users, items, admin, img
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -30,7 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(embeddings.router, prefix="/embedding", tags=["Embedding"])
+    
 app.include_router(llm.router, prefix="/llm", tags=["Chat"])  
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(items.router, prefix="/items", tags=["Items"])

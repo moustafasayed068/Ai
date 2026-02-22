@@ -25,18 +25,6 @@ class LLMService:
 
         except Exception as e:
             raise RuntimeError(f"LLM error: {e}") from e
-        
-
-    def emb(self, text_inputs: list[str] ) -> list[list[float]]:
-            
-            response = self.client.embed(
-                model=settings.EMB_MODEL,  
-                texts=text_inputs,          
-                input_type="classification",
-                embedding_types=["float"]
-            )
-            return response.embeddings.float
-    
 
     def analyze_image(self, image_bytes: bytes, mime_type: str) -> str:
         
