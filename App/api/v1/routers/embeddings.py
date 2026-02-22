@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from App.models.embeddings import EmbRequest, EmbResponse
+from App.schemas.embeddings import EmbRequest, EmbResponse
 from App.services.llm import LLMService
 
 router = APIRouter()
