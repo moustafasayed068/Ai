@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     
     COHERE_API_KEY: str
     LLM_MODEL: str = "command-r-08-2024"
+    VISION_MODEL: str ="command-a-vision-07-2025"
+
     
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
@@ -19,7 +21,8 @@ class Settings(BaseSettings):
     SUPABASE_URL: str 
     SUPABASE_KEY: str 
     SUPABASE_BUCKET: str = "chat-files"
-    
+    SUPABASE_IMAGE_BUCKET: str = "images"
+
     class Config:
         env_file = ".env"
 
