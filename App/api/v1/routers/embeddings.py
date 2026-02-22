@@ -6,6 +6,7 @@ router = APIRouter()
 llm_service = LLMService()
 
 
+
 @router.post("/embed", response_model=EmbResponse)
 async def get_embeddings(request: EmbRequest):
     try:
