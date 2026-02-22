@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     COHERE_API_KEY: str
     LLM_MODEL: str = "command-r-08-2024"
     VISION_MODEL: str ="command-a-vision-07-2025"
+    EMB_MODEL: str = "embed-v4.0"
 
     
     SECRET_KEY: str
