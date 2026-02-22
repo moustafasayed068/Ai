@@ -11,6 +11,7 @@ from ....core.dependencies import get_current_user
 from ....db.session import get_db, get_supabase_db
 from ....core.config import settings
 import logging
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -40,7 +41,7 @@ def create_user_endpoint(
         )
 
 @router.post("/authenticate/{user_id}", response_model=Token)
-def authenticate(user_id: int, db: Session = Depends(get_db)):
+def authenticate(user_id: UUID, db: Session = Depends(get_db)):
     """
     Generate access and refresh tokens for a user
     WARNING: This is for testing only - in production, require password!
@@ -106,7 +107,7 @@ def update_user_endpoint(
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user_endpoint(
-    user_id: int, 
+    user_id: UUID, 
     db: Session = Depends(get_db),
     supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None,
     current_user: UserResponse = Depends(get_current_user)

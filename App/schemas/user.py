@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from uuid import UUID
 
 class UserCreate(BaseModel):
     name: str = Field(default="ahmed")
@@ -8,7 +9,7 @@ class UserCreate(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: UUID
     name: str
     age: int
     email: str

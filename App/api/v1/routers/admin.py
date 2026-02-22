@@ -8,6 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
 class DBModeUpdate(BaseModel):
     db_mode: Literal["local", "supabase", "both"]
     failure_strategy: Literal["fail", "continue", "retry"] = "continue"

@@ -5,12 +5,13 @@ from ..schemas import UserCreate
 from ..core.auth import get_password_hash
 from ..core.config import settings
 import logging
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
 # --- READ --- #
 
-def get_user(db: Session, user_id: int) -> Optional[User]:
+def get_user(db: Session, user_id: UUID) -> Optional[User]:
     """Get user by ID - reads from primary DB only"""
     return db.query(User).filter(User.id == user_id).first()
 
@@ -68,7 +69,7 @@ def create_user(
 def update_user(
     local_db: Session,
     supabase_db: Optional[Session],
-    user_id: int,
+    user_id: UUID,
     user: UserCreate
 ) -> Optional[User]:
     """Update user in relevant database(s)"""
@@ -107,7 +108,7 @@ def update_user(
 def delete_user(
     local_db: Session,
     supabase_db: Optional[Session],
-    user_id: int
+    user_id: UUID
 ) -> bool:
     """Delete user from relevant database(s)"""
     success = False
