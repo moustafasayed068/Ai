@@ -17,3 +17,10 @@ def create_embedding(db: Session, chat_id: UUID, vector: list[float]) -> Embeddi
 
 def get_embedding(db: Session, chat_id: UUID) -> Embedding | None:
     return db.query(Embedding).filter(Embedding.chat_id == chat_id).first()
+
+
+def get_all_embeddings(db: Session, chat_id: UUID | None = None) -> list[Embedding]:
+    query = db.query(Embedding)
+    if chat_id:
+        query = query.filter(Embedding.chat_id == chat_id)
+    return query.all()
