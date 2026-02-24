@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from App.services.llm import LLMService
 from App.client.supabase import SupabaseStorage
@@ -8,8 +8,10 @@ from App.schemas.user import UserResponse
 router = APIRouter()
 llm_service = LLMService()
 
-def get_storage():
+
+async def get_storage():
     return SupabaseStorage()
+
 
 @router.post("/analyze-image")
 async def analyze_image_endpoint(
@@ -27,13 +29,8 @@ async def analyze_image_endpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload failed: {e}")
 
-
     try:
-        result = await run_in_threadpool(
-            llm_service.analyze_image,
-            image_bytes,
-            mime_type
-        )
+        result = await llm_service.analyze_image(image_bytes, mime_type)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image analysis failed: {e}")
 

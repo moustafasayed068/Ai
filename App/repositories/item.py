@@ -4,21 +4,22 @@ from App.models import Item
 from ..schemas import ItemCreate
 from ..core.config import settings
 import logging
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
 # --- READ --- #
 
-def get_item(db: Session, item_id: int) -> Optional[Item]:
+async def get_item(db: Session, item_id: int) -> Optional[Item]:
     return db.query(Item).filter(Item.id == item_id).first()
 
-def get_items_by_user(db: Session, user_id: int) -> list[Item]:
+async def get_items_by_user(db: Session, user_id: UUID) -> list[Item]:
     return db.query(Item).filter(Item.owner_id == user_id).all()
 
 
 # --- CREATE --- #
 
-def create_item(
+async def create_item(
     local_db: Session,
     supabase_db: Optional[Session],
     item: ItemCreate
@@ -26,6 +27,8 @@ def create_item(
     """Create item with SAME ID in both databases if needed"""
     # Create in local DB first if needed
     local_item = None
+    supabase_item = None
+
     if settings.DB_MODE in ("local", "both"):
         local_item = Item(
             title=item.title,
@@ -58,7 +61,7 @@ def create_item(
 
 # --- UPDATE --- #
 
-def update_item(
+async def update_item(
     local_db: Session,
     supabase_db: Optional[Session],
     item_id: int,
@@ -93,7 +96,7 @@ def update_item(
 
 # --- DELETE --- #
 
-def delete_item(
+async def delete_item(
     local_db: Session,
     supabase_db: Optional[Session],
     item_id: int

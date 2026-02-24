@@ -15,3 +15,4 @@ class User(Base):
 
     items = relationship("Item", back_populates="owner", cascade="all, delete")
     chats = relationship("Chat", back_populates="owner", cascade="all, delete")
+    videos = relationship("Video", back_populates="owner", cascade="all, delete")
