@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str 
     SUPABASE_KEY: str 
     SUPABASE_BUCKET: str = "chat-files"
+    SUPABASE_VIDEO_BUCKET: str = "video"
     SUPABASE_IMAGE_BUCKET: str = "images"
 
     class Config:

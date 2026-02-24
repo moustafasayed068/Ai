@@ -15,7 +15,7 @@ router = APIRouter()
 llm_service = LLMService()
 
 
-def to_float_list(array_like):
+def to_float_list(array_like) -> list[float]:
     """Convert numpy array or list to Python list of floats"""
     if hasattr(array_like, "tolist"):
         array_like = array_like.tolist()
@@ -31,25 +31,25 @@ async def create_embedding_endpoint(
     try:
         chat_id = request.chat_id or str(uuid.uuid4())
 
-        create_chat(
+        await create_chat(
             db,
             title="Embedding Chat",
             owner_id=current_user.id,
             chat_id=chat_id
         )
 
-        embeddings = llm_service.emb(request.texts)
+        embeddings = await llm_service.emb(request.texts)
         if not embeddings or not isinstance(embeddings, list):
             raise HTTPException(status_code=500, detail="Embedding service returned invalid result")
 
         vector = embeddings[0]
         vector = vector.tolist() if hasattr(vector, "tolist") else vector
 
-        emb_obj = create_embedding(db, chat_id=chat_id, vector=vector)
+        emb_obj = await create_embedding(db, chat_id=chat_id, vector=vector)
 
         return {
             "embeddings": to_float_list(emb_obj.vector),
-            "chat_id": chat_id
+            "chat_id": str(chat_id)
         }
 
     except HTTPException:
@@ -68,14 +68,13 @@ async def similarity_search(
     Returns top 5 similar embeddings for each algorithm.
     """
     try:
-        query_vector = llm_service.emb([text])[0]
+        query_vector = (await llm_service.emb([text]))[0]
         query_vector = query_vector.tolist() if hasattr(query_vector, "tolist") else query_vector
 
-        all_embeddings = get_all_embeddings(db)
+        all_embeddings = await get_all_embeddings(db)
         if not all_embeddings:
             raise HTTPException(status_code=404, detail="No embeddings in database")
 
-        
         def cosine_sim(v1, v2):
             return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
@@ -86,13 +85,9 @@ async def similarity_search(
             return np.dot(v1, v2)
 
         def hybrid_score(v1, v2, alpha=0.5):
-            """
-            Combines normalized cosine similarity and inverse Euclidean distance
-            alpha = weight for cosine, (1-alpha) weight for Euclidean
-            """
             cos = cosine_sim(v1, v2)
             euclid = euclidean_dist(v1, v2)
-            inv_euclid = 1 / (1 + euclid)  
+            inv_euclid = 1 / (1 + euclid)
             return alpha * cos + (1 - alpha) * inv_euclid
 
         cosine_results = sorted(all_embeddings, key=lambda e: -cosine_sim(query_vector, e.vector))[:5]
@@ -100,7 +95,6 @@ async def similarity_search(
         dot_results = sorted(all_embeddings, key=lambda e: -dot_product(query_vector, e.vector))[:5]
         hybrid_results = sorted(all_embeddings, key=lambda e: -hybrid_score(query_vector, e.vector))[:5]
 
-        
         return {
             "cosine_top5": [{"chat_id": str(e.chat_id)} for e in cosine_results],
             "euclidean_top5": [{"chat_id": str(e.chat_id)} for e in euclidean_results],
@@ -108,15 +102,16 @@ async def similarity_search(
             "hybrid_top5": [{"chat_id": str(e.chat_id)} for e in hybrid_results],
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Similarity search error: {e}")
 
+
 @router.get("/embed", response_model=EmbResponse)
 async def get_embedding_endpoint(chat_id: UUID, db: Session = Depends(get_db)):
-    """
-    Retrieve embedding vector by chat_id
-    """
-    emb = get_embedding(db, chat_id=chat_id)
+    """Retrieve embedding vector by chat_id"""
+    emb = await get_embedding(db, chat_id=chat_id)
     if not emb:
         raise HTTPException(status_code=404, detail="Embedding not found for provided chat_id")
     return {

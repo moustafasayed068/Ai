@@ -2,7 +2,8 @@ from sqlalchemy.orm import Session
 from App.models.embedding import Embedding
 from uuid import UUID
 
-def create_embedding(db: Session, chat_id: UUID, vector: list[float]) -> Embedding:
+
+async def create_embedding(db: Session, chat_id: UUID, vector: list[float]) -> Embedding:
     emb = db.query(Embedding).filter(Embedding.chat_id == chat_id).first()
     if emb:
         emb.vector = vector
@@ -15,11 +16,12 @@ def create_embedding(db: Session, chat_id: UUID, vector: list[float]) -> Embeddi
     db.refresh(db_emb)
     return db_emb
 
-def get_embedding(db: Session, chat_id: UUID) -> Embedding | None:
+
+async def get_embedding(db: Session, chat_id: UUID) -> Embedding | None:
     return db.query(Embedding).filter(Embedding.chat_id == chat_id).first()
 
 
-def get_all_embeddings(db: Session, chat_id: UUID | None = None) -> list[Embedding]:
+async def get_all_embeddings(db: Session, chat_id: UUID | None = None) -> list[Embedding]:
     query = db.query(Embedding)
     if chat_id:
         query = query.filter(Embedding.chat_id == chat_id)

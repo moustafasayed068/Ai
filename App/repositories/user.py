@@ -11,27 +11,29 @@ logger = logging.getLogger(__name__)
 
 # --- READ --- #
 
-def get_user(db: Session, user_id: UUID) -> Optional[User]:
+async def get_user(db: Session, user_id: UUID) -> Optional[User]:
     """Get user by ID - reads from primary DB only"""
     return db.query(User).filter(User.id == user_id).first()
 
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
+async def get_user_by_email(db: Session, email: str) -> Optional[User]:
     """Get user by email - reads from primary DB only"""
     return db.query(User).filter(User.email == email).first()
 
 
 # --- CREATE --- #
 
-def create_user(
-    local_db: Session, 
-    supabase_db: Optional[Session], 
+async def create_user(
+    local_db: Session,
+    supabase_db: Optional[Session],
     user: UserCreate
 ) -> User:
     """Create user with SAME ID in both databases if needed"""
-    hashed_password = get_password_hash(user.password)
+    hashed_password = await get_password_hash(user.password)
 
     # Create local first if needed
     local_user = None
+    supabase_user = None
+
     if settings.DB_MODE in ("local", "both"):
         local_user = User(
             name=user.name,
@@ -66,7 +68,7 @@ def create_user(
 
 # --- UPDATE --- #
 
-def update_user(
+async def update_user(
     local_db: Session,
     supabase_db: Optional[Session],
     user_id: UUID,
@@ -105,7 +107,7 @@ def update_user(
 
 # --- DELETE --- #
 
-def delete_user(
+async def delete_user(
     local_db: Session,
     supabase_db: Optional[Session],
     user_id: UUID

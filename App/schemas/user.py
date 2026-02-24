@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from uuid import UUID
 
+
 class UserCreate(BaseModel):
     name: str = Field(default="ahmed")
     age: int
