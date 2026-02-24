@@ -14,6 +14,7 @@ class Chat(Base):
     
     owner = relationship("User", back_populates="chats")
     messages = relationship("Message", back_populates="chat", cascade="all, delete")
+    embedding= relationship("Embedding", back_populates="chat", uselist=False)
 
 class Message(Base):
     __tablename__ = "messages"
