@@ -1,16 +1,16 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from App.models.video import Video
-from App.models.chat import Chat
+from App.models.chunk import VideoChunk
+from App.services.llm import llm_service
 import uuid
-from App.client.supabase import SupabaseStorage
-from typing import Optional
-import numpy as np
 
-async def create_video(db: Session, title: str, description: str, owner_id: str, video_url: str) -> Video:
+# ---------- VIDEO ----------
+
+async def create_video(db: Session, title: str, owner_id: str, video_url: str) -> Video:
     video = Video(
         id=uuid.uuid4(),
         title=title,
-        description=description,
         owner_id=owner_id,
         video_url=video_url
     )
@@ -20,67 +20,117 @@ async def create_video(db: Session, title: str, description: str, owner_id: str,
     return video
 
 
-async def update_video_transcript(db: Session, video_id, transcript: str) -> Video:
+async def update_video_info(db: Session, video_id, transcript: str, description: str):
     video = db.query(Video).filter(Video.id == video_id).first()
     if not video:
         raise ValueError("Video not found")
     video.transcript = transcript
+    video.description = description
     db.commit()
     db.refresh(video)
     return video
 
 
-async def save_video_embedding(db: Session, video_id, vector: list[float]) -> Video:
-    """Save the embedding vector directly on the Video row (videos.embedding column)."""
-    video = db.query(Video).filter(Video.id == video_id).first()
-    if not video:
-        raise ValueError(f"Video {video_id} not found when saving embedding")
-    video.embedding = vector
+async def get_video_by_id(db: Session, video_id):
+    return db.query(Video).filter(Video.id == video_id).first()
+
+
+async def get_all_videos(db: Session):
+    return db.query(Video).all()
+
+
+# ---------- CHUNKS ----------
+
+async def create_chunk(
+    db: Session,
+    video_id,
+    index: int,
+    content: str,
+    summary: str,
+    start_time: float,
+    end_time: float,
+    embedding: list[float]
+):
+    chunk = VideoChunk(
+        video_id=video_id,
+        chunk_index=index,
+        content=content,
+        summary=summary,
+        start_time=start_time,
+        end_time=end_time,
+        embedding=embedding
+    )
+    db.add(chunk)
     db.commit()
-    db.refresh(video)
-    return video
+    db.refresh(chunk)
+    return chunk
 
 
-async def get_chat_by_video(db: Session, video_id) -> Chat | None:
-    """Return the Chat whose id matches the video_id (if one was created)."""
-    video = db.query(Video).filter(Video.id == video_id).first()
-    if not video:
-        return None
-    return db.query(Chat).filter(Chat.id == video.id).first()
+async def get_chunk_by_id(db: Session, chunk_id):
+    return db.query(VideoChunk).filter(VideoChunk.id == chunk_id).first()
 
 
-async def get_videos_with_embeddings(db: Session) -> list[Video]:
-    """Return all videos that have an embedding stored in their embedding column."""
-    return db.query(Video).filter(Video.embedding.isnot(None)).all()
+async def search_similar_chunks(db: Session, query_vector: list[float], top_k: int = 5):
+    vector_str = "[" + ",".join(str(x) for x in query_vector) + "]"
+    sql = text("""
+        SELECT id
+        FROM video_chunks
+        ORDER BY embedding <-> CAST(:query_vector AS vector)
+        LIMIT :limit
+    """)
+    result = db.execute(sql, {"query_vector": vector_str, "limit": top_k})
+    chunk_ids = [row.id for row in result.fetchall()]
 
-def to_float_list(array_like) -> list[float]:
-    """Convert numpy array or list to Python list of floats."""
-    if hasattr(array_like, "tolist"):
-        array_like = array_like.tolist()
-    return [float(x) for x in array_like]
+    return (
+        db.query(VideoChunk)
+        .filter(VideoChunk.id.in_(chunk_ids))
+        .all()
+    )
 
-
-async def get_storage():
-    return SupabaseStorage()
-
-
-def _extract_public_url(storage_response) -> Optional[str]:
-    if not storage_response:
-        return None
-    if isinstance(storage_response, str):
-        return storage_response
-    for key in ("publicUrl", "public_url", "publicURL", "url"):
-        if isinstance(storage_response, dict) and key in storage_response:
-            return storage_response[key]
-    return str(storage_response)
+async def create_video_chunks(db, video_id: str, transcript: str, video_duration: float):
 
 
-def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
-    """Compute cosine similarity between two vectors."""
-    a = np.array(v1, dtype=float)
-    b = np.array(v2, dtype=float)
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return float(np.dot(a, b) / (norm_a * norm_b))
+    from App.api.v1.routers.embeddings import to_float_list
+ 
+
+    chunks_info = generate_chunks_with_timing(transcript, video_duration, max_words_per_chunk=100)
+
+    for idx, info in enumerate(chunks_info):
+        embedding_vector = await llm_service.emb([info["content"]])
+        embedding_vector = to_float_list(embedding_vector[0])
+
+        summary_text = await llm_service.chat([
+            {"role": "user", "content": f"Summarize this text into a short point:\n{info['content']}"}
+        ])
+
+        chunk = VideoChunk(
+            video_id=video_id,
+            chunk_index=idx,
+            content=info["content"],
+            summary=summary_text,
+            start_time=info["start_time"],
+            end_time=info["end_time"],
+            embedding=embedding_vector
+        )
+        db.add(chunk)
+
+    db.commit()
+
+def generate_chunks_with_timing(transcript: str, video_duration: float, max_words_per_chunk: int = 100):
+    words = transcript.split()
+    total_words = len(words)
+    chunks = []
+
+    seconds_per_word = video_duration / total_words if total_words > 0 else 0
+
+    for i in range(0, total_words, max_words_per_chunk):
+        chunk_words = words[i:i+max_words_per_chunk]
+        chunk_text = " ".join(chunk_words)
+        start_time = i * seconds_per_word
+        end_time = (i + len(chunk_words)) * seconds_per_word
+        chunks.append({
+            "content": chunk_text,
+            "start_time": start_time,
+            "end_time": end_time
+        })
+    return chunks
