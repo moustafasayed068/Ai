@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     SUPABASE_BUCKET: str = "chat-files"
     SUPABASE_VIDEO_BUCKET: str = "video"
     SUPABASE_IMAGE_BUCKET: str = "images"
+    SUPABASE_CV_BUCKET: str = "CVS" 
 
     class Config:
         env_file = ".env"

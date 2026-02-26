@@ -11,6 +11,7 @@ class SupabaseStorage:
         self.chat_bucket = settings.SUPABASE_BUCKET
         self.video_bucket = settings.SUPABASE_VIDEO_BUCKET
         self.image_bucket = settings.SUPABASE_IMAGE_BUCKET
+        self.cv_bucket = settings.SUPABASE_CV_BUCKET
 
     def upload_video(self, file_bytes: bytes, filename: str, user_id: str) -> str:
         file_path = f"{user_id}/{uuid.uuid4()}_{filename}"
@@ -40,3 +41,13 @@ class SupabaseStorage:
         )
 
         return self.client.storage.from_(self.image_bucket).get_public_url(file_path)
+    
+
+    def upload_cv(self, file_bytes: bytes, filename: str, user_id: str) -> str:
+        file_path = f"{user_id}/{uuid.uuid4()}_{filename}"
+        self.client.storage.from_(self.cv_bucket).upload(
+            file_path,
+            file_bytes,
+            {"content-type": "application/pdf"}
+        )
+        return self.client.storage.from_(self.cv_bucket).get_public_url(file_path)
