@@ -63,3 +63,5 @@ class LLMService:
 
         except Exception as e:
             raise RuntimeError(f"Vision error: {e}") from e
+        
+llm_service = LLMService()
