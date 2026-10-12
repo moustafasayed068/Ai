@@ -5,8 +5,8 @@ from ....repositories.user import (
     create_user, get_user, get_user_by_email,
     update_user, delete_user
 )
-from ....schemas import UserCreate, UserResponse, Token
-from ....core.auth import create_access_token, create_refresh_token
+from ....schemas import UserCreate, UserResponse, Token, Login
+from ....core.auth import create_access_token, create_refresh_token, verify_password
 from ....core.dependencies import get_current_user
 from ....db.session import get_db, get_supabase_db
 from ....core.config import settings
@@ -21,7 +21,7 @@ router = APIRouter()
 async def create_user_endpoint(
     user: UserCreate,
     db: Session = Depends(get_db),
-    supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None
+    supabase_db: Optional[Session] = Depends(get_supabase_db)
 ):
     """Create a new user - PUBLIC endpoint (no auth required)"""
     # Check if email already exists
@@ -42,17 +42,14 @@ async def create_user_endpoint(
         )
 
 
-@router.post("/authenticate/{user_id}", response_model=Token)
-async def authenticate(user_id: UUID, db: Session = Depends(get_db)):
-    """
-    Generate access and refresh tokens for a user.
-    NOTE: This is for testing only - in production, require password via /login!
-    """
-    user = await get_user(db, user_id)
-    if not user:
+@router.post("/login", response_model=Token)
+async def login(credentials: Login, db: Session = Depends(get_db)):
+    """Exchange email + password for access and refresh tokens."""
+    user = await get_user_by_email(db, credentials.email)
+    if not user or not await verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
         )
 
     access_token = await create_access_token(data={"sub": user.email})
@@ -79,7 +76,7 @@ async def update_user_endpoint(
     user_id: UUID,  # Fixed: was int, now UUID to match User model
     user: UserCreate,
     db: Session = Depends(get_db),
-    supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None,
+    supabase_db: Optional[Session] = Depends(get_supabase_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -114,7 +111,7 @@ async def update_user_endpoint(
 async def delete_user_endpoint(
     user_id: UUID,
     db: Session = Depends(get_db),
-    supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None,
+    supabase_db: Optional[Session] = Depends(get_supabase_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """

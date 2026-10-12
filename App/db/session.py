@@ -69,8 +69,10 @@ def get_local_db():
 
 
 def get_supabase_db():
+    # None in local mode: repositories already skip Supabase when they get no session.
     if SupabaseSession is None:
-        raise ValueError("Supabase not configured")
+        yield None
+        return
 
     db = SupabaseSession()
     try:

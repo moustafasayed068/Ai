@@ -20,7 +20,7 @@ router = APIRouter()
 async def create_item_endpoint(
     item: ItemCreate,
     db: Session = Depends(get_db),
-    supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None,
+    supabase_db: Optional[Session] = Depends(get_supabase_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -60,7 +60,7 @@ async def update_item_endpoint(
     item_id: int,
     item: ItemCreate,
     db: Session = Depends(get_db),
-    supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None,
+    supabase_db: Optional[Session] = Depends(get_supabase_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -108,7 +108,7 @@ async def update_item_endpoint(
 async def delete_item_endpoint(
     item_id: int,
     db: Session = Depends(get_db),
-    supabase_db: Optional[Session] = Depends(get_supabase_db) if settings.DB_MODE in ["supabase", "both"] else None,
+    supabase_db: Optional[Session] = Depends(get_supabase_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """

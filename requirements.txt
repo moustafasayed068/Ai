@@ -12,3 +12,6 @@ cohere
 supabase
 python-multipart
 pgvector
+numpy
+moviepy<2
+openai-whisper

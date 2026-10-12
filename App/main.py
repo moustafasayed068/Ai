@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from App.db.session import engine, supabase_engine
 from App.db.base import Base
 from App.core.config import settings
 from App.api.v1.routers import llm, users, items, admin, img, embeddings, video
 from fastapi.middleware.cors import CORSMiddleware
+from App.core.dependencies import get_current_user, require_admin
 
 
 @asynccontextmanager
@@ -26,15 +27,17 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,  # auth is a Bearer header, not a cookie
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(video.router, prefix="/video", tags=["vid"])
-app.include_router(embeddings.router, prefix="/embedding", tags=["Embedding"])
+login_required = [Depends(get_current_user)]
+
+app.include_router(video.router, prefix="/video", tags=["vid"], dependencies=login_required)
+app.include_router(embeddings.router, prefix="/embedding", tags=["Embedding"], dependencies=login_required)
 app.include_router(llm.router, prefix="/llm", tags=["Chat"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(items.router, prefix="/items", tags=["Items"])
-app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+app.include_router(admin.router, prefix="/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
 app.include_router(img.router, prefix="/img-analysis", tags=["IMG"])
